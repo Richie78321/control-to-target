@@ -1,7 +1,7 @@
 import pygame
 import sys
-import random
 import numpy as np
+import math
 
 WIDTH, HEIGHT = 800, 800
 
@@ -14,18 +14,20 @@ GREEN = (0, 255, 0)
 
 # Define simulation constants
 TICK_MS: int = 10
-MAX_ACCELERATION: float = 1e-5
+MAX_ACCELERATION: float = 1e-4
 
-def get_1d_acceleration(target: float, position: float, velocity: float) -> float:
-    direction = 1 if target > position else -1
+# Max velocity to reach target
+# (v^2 / 2a) = x
+# 2ax = v^2
+# sqrt(2ax) = v
 
-    distance_to_target = target - position
-    abs_distance_decelerate = 0.5 * (velocity ** 2) / MAX_ACCELERATION
+def get_target_velocity(target: np.ndarray, position: np.ndarray) -> np.ndarray:
+    to_target = target - position
+    target_distance = np.linalg.norm(to_target)
+    unit_to_target = to_target / target_distance
 
-    if velocity * distance_to_target >= 0 and abs(distance_to_target) <= abs_distance_decelerate:
-        return -direction * MAX_ACCELERATION
-    else:
-        return direction * MAX_ACCELERATION
+    target_velocity_scalar = math.sqrt(2 * MAX_ACCELERATION * target_distance)
+    return target_velocity_scalar * unit_to_target
 
 class Control:
     target: np.ndarray
@@ -50,12 +52,17 @@ class Control:
         pygame.draw.circle(screen, RED, (self.target[0] * WIDTH, self.target[1] * HEIGHT), radius=2)
 
     def update(self):
-        self.velocity[0] += get_1d_acceleration(target=self.target[0], velocity=self.velocity[0], position=self.position[0])
-        self.velocity[1] += get_1d_acceleration(target=self.target[1], velocity=self.velocity[1], position=self.position[1])
+        target_velocity = get_target_velocity(self.target, self.position)
 
-        self.position[0] += self.velocity[0]
-        self.position[1] += self.velocity[1]
+        acceleration = target_velocity - self.velocity
+        acceleration_scalar = np.linalg.norm(acceleration)
 
+        if acceleration_scalar > MAX_ACCELERATION:
+            acceleration /= acceleration_scalar
+            acceleration *= MAX_ACCELERATION
+
+        self.velocity += acceleration
+        self.position += self.velocity
 
 def main():
     # Initialize Pygame
