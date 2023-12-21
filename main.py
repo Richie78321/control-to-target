@@ -29,6 +29,9 @@ def get_target_velocity(target: np.ndarray, position: np.ndarray) -> np.ndarray:
     target_velocity_scalar = math.sqrt(2 * MAX_ACCELERATION * target_distance)
     return target_velocity_scalar * unit_to_target
 
+def to_pygame_point(arr: np.ndarray) -> tuple[float, float]:
+    return (arr[0] * WIDTH, arr[1] * HEIGHT)
+
 class Control:
     target: np.ndarray
     position: np.ndarray
@@ -40,16 +43,24 @@ class Control:
         self.velocity = velocity
 
     def draw(self, screen):
-        color = WHITE
+        unit_to_target = self.target - self.position
+        unit_to_target /= np.linalg.norm(unit_to_target)
+        unit_velocity = self.velocity / np.linalg.norm(self.velocity)
+        color = GREEN if np.dot(unit_to_target, unit_velocity) > 0 else BLUE
 
-        if np.linalg.norm(self.velocity) > 0.0001:
-            unit_to_target = self.target - self.position
-            unit_to_target /= np.linalg.norm(unit_to_target)
-            unit_velocity = self.velocity / np.linalg.norm(self.velocity)
-            color = GREEN if np.dot(unit_to_target, unit_velocity) > 0 else BLUE
+        # Draw a triangle to indicate heading of the control
+        velocity_perpendicular = np.array([unit_velocity[1], -unit_velocity[0]])
+        arrow_points = [
+            self.position + unit_velocity * 0.02,
+            self.position + velocity_perpendicular * 0.01,
+            self.position - velocity_perpendicular * 0.01,
+        ]
+        pygame.draw.polygon(screen, WHITE, list(map(to_pygame_point, arrow_points)))
 
-        pygame.draw.circle(screen, color, (self.position[0] * WIDTH, self.position[1] * HEIGHT), radius=5)
-        pygame.draw.circle(screen, RED, (self.target[0] * WIDTH, self.target[1] * HEIGHT), radius=2)
+        # Draw target
+        pygame.draw.circle(screen, RED, to_pygame_point(self.target), radius=2)
+        
+        
 
     def update(self):
         target_velocity = get_target_velocity(self.target, self.position)
