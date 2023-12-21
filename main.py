@@ -13,8 +13,8 @@ BLUE = (0, 0, 255)
 GREEN = (0, 255, 0)
 
 # Define simulation constants
-TICK_MS: int = 10
-MAX_ACCELERATION: float = 1e-4
+TICK_MS: int = 30
+MAX_ACCELERATION: float = 3e-2 / TICK_MS
 
 # Max velocity to reach target
 # (v^2 / 2a) = x
@@ -43,19 +43,21 @@ class Control:
         self.velocity = velocity
 
     def draw(self, screen):
-        unit_to_target = self.target - self.position
-        unit_to_target /= np.linalg.norm(unit_to_target)
-        unit_velocity = self.velocity / np.linalg.norm(self.velocity)
-        color = GREEN if np.dot(unit_to_target, unit_velocity) > 0 else BLUE
+        if not np.isclose(np.linalg.norm(self.velocity), 0):
+            unit_to_target = self.target - self.position
+            unit_to_target /= np.linalg.norm(unit_to_target)
+            unit_velocity = self.velocity / np.linalg.norm(self.velocity)
 
-        # Draw a triangle to indicate heading of the control
-        velocity_perpendicular = np.array([unit_velocity[1], -unit_velocity[0]])
-        arrow_points = [
-            self.position + unit_velocity * 0.02,
-            self.position + velocity_perpendicular * 0.01,
-            self.position - velocity_perpendicular * 0.01,
-        ]
-        pygame.draw.polygon(screen, WHITE, list(map(to_pygame_point, arrow_points)))
+            # Draw a triangle to indicate heading of the control
+            velocity_perpendicular = np.array([unit_velocity[1], -unit_velocity[0]])
+            arrow_points = [
+                self.position + unit_velocity * 0.02,
+                self.position + velocity_perpendicular * 0.01,
+                self.position - velocity_perpendicular * 0.01,
+            ]
+            pygame.draw.polygon(screen, WHITE, list(map(to_pygame_point, arrow_points)))
+        else:
+            pygame.draw.circle(screen, WHITE, to_pygame_point(self.position), radius=5)
 
         # Draw target
         pygame.draw.circle(screen, RED, to_pygame_point(self.target), radius=2)
@@ -64,6 +66,8 @@ class Control:
 
     def update(self):
         target_velocity = get_target_velocity(self.target, self.position)
+        if np.linalg.norm(target_velocity) < 0.001:
+            target_velocity = np.zeros(2)
 
         acceleration = target_velocity - self.velocity
         acceleration_scalar = np.linalg.norm(acceleration)
